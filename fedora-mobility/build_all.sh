@@ -21,3 +21,6 @@ build_uboot() {
 
 build_uboot uboot-sdm845-oneplus-enchilada.img "qcom_defconfig fastboot-debug.config qcom-phone.config" qcom/sdm845-oneplus-enchilada
 build_uboot uboot-sdm845-oneplus-fajita.img "qcom_defconfig fastboot-debug.config qcom-phone.config" qcom/sdm845-oneplus-fajita
+build_uboot uboot-sdm845-xiaomi-beryllium-tianma.img "qcom_defconfig fastboot-debug.config qcom-phone.config" qcom/sdm845-xiaomi-beryllium-tianma
+build_uboot uboot-sdm845-xiaomi-beryllium-ebbg.img "qcom_defconfig fastboot-debug.config qcom-phone.config" qcom/sdm845-xiaomi-beryllium-ebbg
+
