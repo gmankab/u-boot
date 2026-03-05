@@ -26,6 +26,21 @@
 		serial0 = &uart5;
 	};
 
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		framebuffer@e3940000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0xe3940000 0x0 (2484 * 1116 * 4)>;
+			width = <1116>;
+			height = <2484>;
+			stride = <(1116 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -203,6 +218,17 @@
 
 		regulator-always-on;
 		regulator-boot-on;
+	};
+
+	reserved-memory {
+		/*
+		 * ABL is powering down display and controller if this node is
+		 * not named exactly "splash_region".
+		 */
+		splash_region@e3940000 {
+			reg = <0x0 0xe3940000 0x0 0x2b00000>;
+			no-map;
+		};
 	};
 
 	thermal-zones {
