@@ -15,6 +15,11 @@
 #define DWMCI_SET_DRV_CLK(x)		((x) << 16)
 #define DWMCI_SET_DIV_RATIO(x)		((x) << 24)
 
+/* HS400 Related Registers */
+#define DWMCI_HS400_DQS_EN		0x180
+#define DWMCI_HS400_ASYNC_FIFO_CTRL	0x184
+#define DWMCI_HS400_DLINE_CTRL		0x188
+
 /* Protector Register */
 #define DWMCI_EMMCP_BASE		0x1000
 #define EMMCP_MPSECURITY		(DWMCI_EMMCP_BASE + 0x0010)

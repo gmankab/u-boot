@@ -8,6 +8,7 @@
 #include <dwmmc.h>
 #include <asm/global_data.h>
 #include <malloc.h>
+#include <mmc.h>
 #include <errno.h>
 #include <asm/arch/dwmmc.h>
 #include <asm/arch/clk.h>
@@ -29,6 +30,14 @@
 #define CLKSEL_CCLK_SAMPLE(x)		(((x) & 7) << 0)
 #define CLKSEL_UP_SAMPLE(x, y)		(((x) & ~CLKSEL_CCLK_SAMPLE(7)) | \
 					 CLKSEL_CCLK_SAMPLE(y))
+
+/* RCLK_EN register defines */
+#define DATA_STROBE_EN			BIT(0)
+#define AXI_NON_BLOCKING_WR	BIT(7)
+
+/* DLINE_CTRL register defines */
+#define DQS_CTRL_RD_DELAY(x, y)		(((x) & ~0x3FF) | ((y) & 0x3FF))
+#define DQS_CTRL_GET_RD_DELAY(x)	((x) & 0x3FF)
 
 /**
  * DOC: Quirk flags for different Exynos DW MMC blocks
@@ -71,6 +80,11 @@ struct dwmci_exynos_priv_data {
 	struct clk clk;
 	u32 sdr_timing;
 	u32 ddr_timing;
+	u32 hs400_timing;
+	u32 tuned_sample;
+	u32 dqs_delay;
+	u32 saved_dqs_en;
+	u32 saved_strobe_ctrl;
 	const struct exynos_dwmmc_variant *chip;
 };
 
@@ -162,6 +176,27 @@ static u8 exynos_dwmmc_get_ciu_div(struct dwmci_host *host)
 				& DWMCI_DIVRATIO_MASK) + 1;
 }
 
+static void exynos_config_hs400(struct dwmci_host *host, enum bus_mode mode)
+{
+	struct dwmci_exynos_priv_data *priv = exynos_dwmmc_get_priv(host);
+	u32 dqs, strobe;
+
+	dqs = priv->saved_dqs_en;
+	strobe = priv->saved_strobe_ctrl;
+
+	switch (mode) {
+	case MMC_HS_400:
+		dqs |= DATA_STROBE_EN;
+		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
+		break;
+	default:
+		dqs &= ~DATA_STROBE_EN;
+	}
+
+	dwmci_writel(host, DWMCI_HS400_DQS_EN, dqs);
+	dwmci_writel(host, DWMCI_HS400_DLINE_CTRL, strobe);
+}
+
 /* Configure CLKSEL register with chosen timing values */
 static int exynos_dwmci_clksel(struct dwmci_host *host)
 {
@@ -170,6 +205,9 @@ static int exynos_dwmci_clksel(struct dwmci_host *host)
 	u32 timing;
 
 	switch (host->mmc->selected_mode) {
+	case MMC_HS_400:
+		timing = CLKSEL_UP_SAMPLE(priv->hs400_timing, priv->tuned_sample);
+		break;
 	case MMC_DDR_52:
 		timing = priv->ddr_timing;
 		break;
@@ -185,6 +223,9 @@ static int exynos_dwmci_clksel(struct dwmci_host *host)
 	}
 
 	dwmci_writel(host, priv->chip->clksel, timing);
+
+	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT))
+		exynos_config_hs400(host, host->mmc->selected_mode);
 
 	return 0;
 }
@@ -222,6 +263,16 @@ static unsigned int exynos_dwmci_get_clk(struct dwmci_host *host, uint freq)
 static void exynos_dwmci_board_init(struct dwmci_host *host)
 {
 	struct dwmci_exynos_priv_data *priv = exynos_dwmmc_get_priv(host);
+
+	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT)) {
+		priv->saved_strobe_ctrl = dwmci_readl(host, DWMCI_HS400_DLINE_CTRL);
+		priv->saved_dqs_en = dwmci_readl(host, DWMCI_HS400_DQS_EN);
+		priv->saved_dqs_en |= AXI_NON_BLOCKING_WR;
+		dwmci_writel(host, DWMCI_HS400_DQS_EN, priv->saved_dqs_en);
+		if (!priv->dqs_delay)
+			priv->dqs_delay =
+				DQS_CTRL_GET_RD_DELAY(priv->saved_strobe_ctrl);
+	}
 
 	if (priv->chip->quirks & DWMCI_QUIRK_DISABLE_SMU) {
 		dwmci_writel(host, EMMCP_MPSBEGIN0, 0);
@@ -319,6 +370,22 @@ static int exynos_dwmmc_of_to_plat(struct udevice *dev)
 				   DWMCI_SET_DIV_RATIO(div);
 	}
 
+	err = dev_read_u32_array(dev, "samsung,dw-mshc-hs400-timing", timing, 2);
+	if (err) {
+		debug("DWMMC%d: Can't get hs400-timings, using ddr-timings\n",
+		      host->dev_index);
+		priv->hs400_timing = priv->ddr_timing;
+	} else {
+		priv->hs400_timing = DWMCI_SET_SAMPLE_CLK(timing[0]) |
+				     DWMCI_SET_DRV_CLK(timing[1]) |
+				     DWMCI_SET_DIV_RATIO(1);
+		if (dev_read_u32(dev, "samsung,read-strobe-delay", &priv->dqs_delay)) {
+			priv->dqs_delay = 0;
+			debug("DWMMC%d: read-strobe-delay is not found, assuming usage of default value\n",
+			      host->dev_index);
+		}
+	}
+
 	host->buswidth = dev_read_u32_default(dev, "bus-width", 4);
 	host->fifo_depth = dev_read_u32_default(dev, "fifo-depth", 0);
 	host->bus_hz = dev_read_u32_default(dev, "clock-frequency", 0);
@@ -356,6 +423,16 @@ static int exynos_dwmmc_get_best_clksmpl(u8 candidates)
 	return -EIO;
 }
 
+static int dw_mci_exynos_prepare_hs400_tuning(struct dwmci_host *host)
+{
+	struct dwmci_exynos_priv_data *priv = exynos_dwmmc_get_priv(host);
+
+	dwmci_writel(host, priv->chip->clksel, priv->hs400_timing);
+	host->bus_hz = exynos_dwmci_get_clk(host, host->clock);
+
+	return 0;
+}
+
 static int exynos_dwmmc_execute_tuning(struct udevice *dev, u32 opcode)
 {
 	struct dwmci_exynos_priv_data *priv = dev_get_priv(dev);
@@ -364,6 +441,9 @@ static int exynos_dwmmc_execute_tuning(struct udevice *dev, u32 opcode)
 	u8 start_smpl, smpl, candidates = 0;
 	u32 clksel;
 	int ret;
+
+	if (mmc->hs400_tuning)
+		dw_mci_exynos_prepare_hs400_tuning(host);
 
 	clksel = dwmci_readl(host, priv->chip->clksel);
 	start_smpl = CLKSEL_CCLK_SAMPLE(clksel);
@@ -387,6 +467,7 @@ static int exynos_dwmmc_execute_tuning(struct udevice *dev, u32 opcode)
 		return ret;
 	}
 
+	priv->tuned_sample = ret;
 	dwmci_writel(host, priv->chip->clksel, CLKSEL_UP_SAMPLE(clksel, ret));
 
 	return 0;
