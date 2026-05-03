@@ -225,6 +225,16 @@ struct dwmci_host {
 	 * return that value too. Then DWMMC will put itself in bypass mode.
 	 */
 	unsigned int (*get_mmc_clk)(struct dwmci_host *host, uint freq);
+	/**
+	 * @set_enhanced_strobe: (Optional) Platform function to run on enabling
+	 * HS400ES strobe
+	 *
+	 * @host:	DWMMC host
+	 *
+	 * This is used to enable the enhanced strobe for the HS400ES MMC mode.
+	 * The caller invokes this at the end of the HS400ES frequency dance.
+	 */
+	unsigned int (*set_enhanced_strobe)(struct dwmci_host *host);
 
 #ifndef CONFIG_BLK
 	struct mmc_config cfg;

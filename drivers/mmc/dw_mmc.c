@@ -730,6 +730,19 @@ static int dwmci_init(struct mmc *mmc)
 	return 0;
 }
 
+#if CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)
+static int dwmci_set_enhanced_strobe(struct udevice *dev)
+{
+	struct mmc *mmc = mmc_get_mmc_dev(dev);
+	struct dwmci_host *host = mmc->priv;
+
+	if (host && host->set_enhanced_strobe)
+		return host->set_enhanced_strobe(host);
+
+	return 0;
+}
+#endif
+
 #if CONFIG_IS_ENABLED(DM_MMC)
 int dwmci_probe(struct udevice *dev)
 {
@@ -741,6 +754,9 @@ int dwmci_probe(struct udevice *dev)
 const struct dm_mmc_ops dm_dwmci_ops = {
 	.send_cmd	= dwmci_send_cmd,
 	.set_ios	= dwmci_set_ios,
+#if CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)
+	.set_enhanced_strobe = dwmci_set_enhanced_strobe,
+#endif
 };
 
 #else
@@ -748,6 +764,9 @@ static const struct mmc_ops dwmci_ops = {
 	.send_cmd	= dwmci_send_cmd,
 	.set_ios	= dwmci_set_ios,
 	.init		= dwmci_init,
+#if CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)
+	.set_enhanced_strobe = dwmci_set_enhanced_strobe,
+#endif
 };
 #endif
 
