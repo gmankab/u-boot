@@ -185,6 +185,7 @@ static void exynos_config_hs400(struct dwmci_host *host, enum bus_mode mode)
 	strobe = priv->saved_strobe_ctrl;
 
 	switch (mode) {
+	case MMC_HS_400_ES:
 	case MMC_HS_400:
 		dqs |= DATA_STROBE_EN;
 		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
@@ -205,6 +206,7 @@ static int exynos_dwmci_clksel(struct dwmci_host *host)
 	u32 timing;
 
 	switch (host->mmc->selected_mode) {
+	case MMC_HS_400_ES:
 	case MMC_HS_400:
 		timing = CLKSEL_UP_SAMPLE(priv->hs400_timing, priv->tuned_sample);
 		break;
@@ -224,7 +226,8 @@ static int exynos_dwmci_clksel(struct dwmci_host *host)
 
 	dwmci_writel(host, priv->chip->clksel, timing);
 
-	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT))
+	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT) ||
+	    CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT))
 		exynos_config_hs400(host, host->mmc->selected_mode);
 
 	return 0;
@@ -239,7 +242,8 @@ static unsigned int exynos_dwmci_get_clk(struct dwmci_host *host, uint freq)
 	/* Should be double rate for DDR or HS mode */
 	if ((host->mmc->selected_mode == MMC_DDR_52 &&
 	     host->mmc->bus_width == 8) ||
-	    host->mmc->selected_mode == MMC_HS_400) {
+	    host->mmc->selected_mode == MMC_HS_400 ||
+	    host->mmc->selected_mode == MMC_HS_400_ES) {
 		freq *= 2;
 	}
 
@@ -264,7 +268,8 @@ static void exynos_dwmci_board_init(struct dwmci_host *host)
 {
 	struct dwmci_exynos_priv_data *priv = exynos_dwmmc_get_priv(host);
 
-	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT)) {
+	if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT) ||
+	    CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)) {
 		priv->saved_strobe_ctrl = dwmci_readl(host, DWMCI_HS400_DLINE_CTRL);
 		priv->saved_dqs_en = dwmci_readl(host, DWMCI_HS400_DQS_EN);
 		priv->saved_dqs_en |= AXI_NON_BLOCKING_WR;
@@ -522,7 +527,7 @@ static int exynos_dwmmc_probe(struct udevice *dev)
 	host->name = dev->name;
 	host->board_init = exynos_dwmci_board_init;
 	host->caps = MMC_MODE_DDR_52MHz | MMC_MODE_HS200 | MMC_MODE_HS400 |
-		     UHS_CAPS;
+		     MMC_MODE_HS400_ES | UHS_CAPS;
 	host->clksel = exynos_dwmci_clksel;
 	host->get_mmc_clk = exynos_dwmci_get_clk;
 
