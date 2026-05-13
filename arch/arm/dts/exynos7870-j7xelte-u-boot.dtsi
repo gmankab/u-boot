@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2026 Antoine Bernard <zalnir@proton.me>
+ */
+
+/ {
+	/* These properties are required by S-BOOT. */
+	model_info-chip = <7870>;
+	model_info-hw_rev = <0>;
+	model_info-hw_rev_end = <255>;
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		framebuffer@67000000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x67000000 (720 * 1280 * 4)>;
+			width = <720>;
+			height = <1280>;
+			stride = <(720 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
+};
