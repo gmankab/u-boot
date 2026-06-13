@@ -353,6 +353,31 @@ int dram_init_banksize(void)
 	return 0;
 }
 
+void lmb_arch_add_memory(void)
+{
+	u64 ddr_low_top = 1ULL << 32;
+	unsigned int i;
+
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		u64 start = gd->bd->bi_dram[i].start;
+		u64 size = gd->bd->bi_dram[i].size;
+
+		if (!size)
+			continue;
+
+		lmb_add(start, size);
+
+		/* Limit memory used by U-Boot to the DDR low region */
+		if (start >= ddr_low_top)
+			lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &start, size,
+				      LMB_NOOVERWRITE);
+		else if (start + size > ddr_low_top)
+			lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &ddr_low_top,
+				      start + size - ddr_low_top,
+				      LMB_NOOVERWRITE);
+	}
+}
+
 int board_init(void)
 {
 	return 0;
