@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+&vreg_l1c_1p8 {
+	regulator-name = "ldoc1";
+};
+
+&vreg_l5c_1p8 {
+	regulator-name = "ldoc5";
+};
+
+&vreg_l6c_2p9 {
+	regulator-name = "ldoc6";
+};
+
+&vreg_l7c_3p0 {
+	regulator-name = "ldoc7";
+};
+
+&vreg_l9c_2p9 {
+	regulator-name = "ldoc9";
+};
+
+&vreg_l10c_3p3 {
+	regulator-name = "ldoc10";
+};
+
+&vreg_l11c_3p3 {
+	regulator-name = "ldoc11";
+};
