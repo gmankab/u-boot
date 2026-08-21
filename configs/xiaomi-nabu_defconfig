@@ -1,0 +1,5 @@
+# Configuration for building U-Boot for Xiaomi Pad 5
+
+#include "qcom_defconfig"
+
+CONFIG_DEFAULT_DEVICE_TREE="qcom/sm8150-xiaomi-nabu"
