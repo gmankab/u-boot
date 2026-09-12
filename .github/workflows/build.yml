@@ -1,0 +1,62 @@
+on:
+  workflow_dispatch: {}
+  workflow_call: {}
+  push: {}
+jobs:
+  build:
+    runs-on: ubuntu-26.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: fairphone-fp4
+            dtb: qcom/sm7225-fairphone-fp4
+            header_version: 2
+          - device: fairphone-fp5
+            dtb: qcom/qcm6490-fairphone-fp5
+            header_version: 2
+          - device: fairphone-fp6
+            dtb: qcom/milos-fairphone-fp6
+            header_version: 2
+          - device: google-sargo
+            dtb: qcom/sdm670-google-sargo
+            extra_config: google-pixel.config
+            page_size: 2048
+          - device: nothing-spacewar
+            dtb: qcom/sm7325-nothing-spacewar
+            header_version: 2
+          - device: oneplus-enchilada
+            dtb: qcom/sdm845-oneplus-enchilada
+          - device: oneplus-fajita
+            dtb: qcom/sdm845-oneplus-fajita
+          - device: xiaomi-beryllium-ebbg
+            dtb: qcom/sdm845-xiaomi-beryllium-ebbg
+          - device: xiaomi-beryllium-tianma
+            dtb: qcom/sdm845-xiaomi-beryllium-tianma
+          - device: xiaomi-davinci-samsung
+            dtb: qcom/sm7150-xiaomi-davinci-samsung
+          - device: xiaomi-davinci-visionox
+            dtb: qcom/sm7150-xiaomi-davinci-visionox
+          - device: xiaomi-nabu
+            dtb: qcom/sm8150-xiaomi-nabu
+          - device: xiaomi-pipa
+            dtb: qcom/sm8250-xiaomi-pipa
+          - device: xiaomi-surya-huaxing
+            dtb: qcom/sm7150-xiaomi-surya-huaxing
+          - device: xiaomi-surya-tianma
+            dtb: qcom/sm7150-xiaomi-surya-tianma
+    env:
+      IMAGE: u-boot-${{ matrix.device }}.img
+      DEVICE_TREE: ${{ matrix.dtb }}
+      HEADER_VERSION: ${{ matrix.header_version }}
+      EXTRA_CONFIG: ${{ matrix.extra_config }}
+      PAGE_SIZE: ${{ matrix.page_size || '4096' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker://quay.io/fedora/fedora-toolbox:latest
+        with:
+          args: bash .github/workflows/build.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.IMAGE }}
+          archive: false
