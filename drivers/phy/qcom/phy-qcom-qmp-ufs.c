@@ -1415,6 +1415,10 @@ static void qmp_ufs_init_registers(struct qmp_ufs_priv *qmp, const struct qmp_uf
 	qmp_ufs_serdes_init(qmp, &cfg->tbls_hs_g4);
 	qmp_ufs_lanes_init(qmp, &cfg->tbls);
 	qmp_ufs_pcs_init(qmp, &cfg->tbls);
+	if (of_machine_is_compatible("xiaomi,nabu")) {
+		writel(0x03, qmp->pcs + QPHY_V4_PCS_UFS_TX_HSGEAR_CAPABILITY);
+		writel(0x03, qmp->pcs + QPHY_V4_PCS_UFS_RX_HSGEAR_CAPABILITY);
+	}
 }
 
 static int qmp_ufs_do_reset(struct qmp_ufs_priv *qmp)
